@@ -9,7 +9,7 @@ class ITSupportAgent:
     def __init__(self):
         self.llm = ChatOpenAI(
             temperature=0,
-            model_name="gpt-3.5-turbo",
+            model_name="gpt-4o-mini",
             openai_api_key=os.getenv("OPENAI_API_KEY")
         )
 
@@ -19,6 +19,7 @@ class ITSupportAgent:
         2. Ask relevant follow-up questions when needed
         3. Provide detailed troubleshooting steps
         4. Track issue resolution progress
+        5. Always respond in english as default, unless the user asks in spanish.
 
         Important Guidelines:
         - Always acknowledge the user's problem first
