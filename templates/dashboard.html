@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <h5 class="card-title">Total Tickets</h5>
+                <h2 class="card-text">{{ metrics.total_tickets }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <h5 class="card-title">Resolved Tickets</h5>
+                <h2 class="card-text">{{ metrics.resolved_tickets }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <h5 class="card-title">Pending Review</h5>
+                <h2 class="card-text">{{ metrics.pending_tickets }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- New Chart Section -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Ticket Age Distribution</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="ticketAgeChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Resolution Time</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="resolutionTimeChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title mb-3">Support Tickets</h3>
+        <form class="row g-3" method="get">
+            <div class="col-md-3">
+                <label class="form-label">Status</label>
+                <select name="status" class="form-select">
+                    <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All Tickets</option>
+                    <option value="open" {% if status_filter == 'open' %}selected{% endif %}>Open</option>
+                    <option value="resolved" {% if status_filter == 'resolved' %}selected{% endif %}>Resolved</option>
+                    <option value="pending_review" {% if status_filter == 'pending_review' %}selected{% endif %}>Pending Review</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Category</label>
+                <select name="category" class="form-select">
+                    <option value="all" {% if category_filter == 'all' %}selected{% endif %}>All Categories</option>
+                    <option value="network" {% if category_filter == 'network' %}selected{% endif %}>Network</option>
+                    <option value="hardware" {% if category_filter == 'hardware' %}selected{% endif %}>Hardware</option>
+                    <option value="software" {% if category_filter == 'software' %}selected{% endif %}>Software</option>
+                    <option value="access" {% if category_filter == 'access' %}selected{% endif %}>Access</option>
+                    <option value="other" {% if category_filter == 'other' %}selected{% endif %}>Other</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Start Date</label>
+                <input type="date" name="start_date" class="form-control" value="{{ start_date if start_date }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">End Date</label>
+                <input type="date" name="end_date" class="form-control" value="{{ end_date if end_date }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">&nbsp;</label>
+                <button type="submit" class="btn btn-primary">Filter</button>
+            </div>
+        </form>
+        <div class="mt-3">
+            <a href="{{ url_for('download_csv') }}{% if request.query_string %}?{{ request.query_string.decode() }}{% endif %}" 
+               class="btn btn-success">
+                Download CSV
+            </a>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>User</th>
+                        <th>Category</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th>Resolved</th>
+                        <th>Age</th>
+                        <th>Confidence</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ticket in tickets %}
+                    <tr>
+                        <td>#{{ ticket.id }}</td>
+                        <td>
+                            {{ ticket.name }}<br>
+                            <small class="text-muted">{{ ticket.email }}</small>
+                        </td>
+                        <td>
+                            <span class="badge bg-info">{{ ticket.category|title }}</span>
+                        </td>
+                        <td>
+                            <span class="badge {% if ticket.status == 'resolved' %}bg-success{% elif ticket.status == 'pending_review' %}bg-warning{% else %}bg-primary{% endif %}">
+                                {{ ticket.status|replace('_', ' ')|title }}
+                            </span>
+                        </td>
+                        <td>{{ ticket.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td>
+                            {% if ticket.resolved_at %}
+                                {{ ticket.resolved_at.strftime('%Y-%m-%d %H:%M') }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% set age = ((ticket.resolved_at if ticket.resolved_at else now) - ticket.created_at).total_seconds() // 3600 %}
+                            {{ "%.1f"|format(age/24) }} days
+                        </td>
+                        <td>
+                            <div class="progress">
+                                <div class="progress-bar {% if ticket.confidence_score >= 0.7 %}bg-success{% else %}bg-warning{% endif %}"
+                                     role="progressbar"
+                                     style="width: {{ (ticket.confidence_score * 100)|int }}%"
+                                     aria-valuenow="{{ (ticket.confidence_score * 100)|int }}"
+                                     aria-valuemin="0"
+                                     aria-valuemax="100">
+                                    {{ "%.0f"|format(ticket.confidence_score * 100) }}%
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <a href="{{ url_for('chat_view', ticket_id=ticket.id) }}" class="btn btn-sm btn-primary">View Chat</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Add Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Fetch chart data
+    fetch('/chart_data')
+        .then(response => response.json())
+        .then(data => {
+            // Ticket Age Distribution Chart
+            new Chart(document.getElementById('ticketAgeChart'), {
+                type: 'bar',
+                data: {
+                    labels: data.age_distribution.labels,
+                    datasets: [{
+                        label: 'Number of Tickets',
+                        data: data.age_distribution.values,
+                        backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Resolution Time Chart
+            new Chart(document.getElementById('resolutionTimeChart'), {
+                type: 'line',
+                data: {
+                    labels: data.resolution_time.labels,
+                    datasets: [{
+                        label: 'Average Resolution Time (days)',
+                        data: data.resolution_time.values,
+                        fill: false,
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">Submit Support Ticket</h2>
+            </div>
+            <div class="card-body">
+                <form id="ticketForm" action="{{ url_for('submit_ticket') }}" method="post">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Name *</label>
+                        <input type="text" class="form-control" id="name" name="name" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email *</label>
+                        <input type="email" class="form-control" id="email" name="email" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="category" class="form-label">Issue Category</label>
+                        <select class="form-select" id="category" name="category">
+                            <option value="network">Network Issue</option>
+                            <option value="hardware">Hardware Problem</option>
+                            <option value="software">Software Issue</option>
+                            <option value="access">Access/Login Problem</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description of the Issue *</label>
+                        <textarea class="form-control" id="description" name="description" rows="5" required></textarea>
+                        <div class="form-text">Please provide as much detail as possible about your issue.</div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary" id="submitBtn">
+                        <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                        Submit Ticket
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="/static/js/form.js"></script>
+{% endblock %}

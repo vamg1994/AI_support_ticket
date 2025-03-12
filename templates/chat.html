@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">Support Chat - Ticket #{{ ticket.id }}</h2>
+                <p class="text-muted mb-0">{{ ticket.category|title }} Issue</p>
+            </div>
+            <div class="card-body">
+                <div class="chat-messages mb-4" id="chatMessages" style="height: 400px; overflow-y: auto;">
+                    <!-- Initial AI Response -->
+                    <div class="message ai-message mb-3">
+                        <div class="message-content">
+                            {{ ticket.ai_response|nl2br }}
+                        </div>
+                        <small class="text-muted">AI Support Agent</small>
+                    </div>
+                </div>
+
+                <form id="chatForm" class="mt-3">
+                    <input type="hidden" name="ticket_id" value="{{ ticket.id }}">
+                    <div class="mb-3">
+                        <textarea class="form-control" id="userMessage" name="message" rows="3" placeholder="Type your message here..." required></textarea>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <button type="submit" class="btn btn-primary" id="sendMessage">
+                            <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                            Send Message
+                        </button>
+                        {% if not ticket.requires_human_attention %}
+                        <button type="button" class="btn btn-warning" id="escalateButton" onclick="escalateToHuman()">
+                            Contact Human Support
+                        </button>
+                        {% else %}
+                        <span class="badge bg-warning">Escalated to Human Support</span>
+                        {% endif %}
+                        {% if ticket.status != 'resolved' %}
+                        <button type="button" class="btn btn-success" id="resolveButton" onclick="markAsResolved()">
+                            Mark as Resolved
+                        </button>
+                        {% else %}
+                        <span class="badge bg-success">Resolved</span>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const chatForm = document.getElementById('chatForm');
+    const chatMessages = document.getElementById('chatMessages');
+    const sendButton = document.getElementById('sendMessage');
+    const spinner = sendButton.querySelector('.spinner-border');
+
+    chatForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const messageInput = document.getElementById('userMessage');
+        const message = messageInput.value.trim();
+        if (!message) return;
+
+        // Disable form and show spinner
+        sendButton.disabled = true;
+        spinner.classList.remove('d-none');
+
+        try {
+            const response = await fetch('/chat_message', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    ticket_id: {{ ticket.id }},
+                    message: message
+                })
+            });
+
+            const data = await response.json();
+            
+            // Add user message
+            const userDiv = document.createElement('div');
+            userDiv.className = 'message user-message mb-3 text-end';
+            userDiv.innerHTML = `
+                <div class="message-content">
+                    ${message}
+                </div>
+                <small class="text-muted">You</small>
+            `;
+            chatMessages.appendChild(userDiv);
+
+            // Add AI response
+            const aiDiv = document.createElement('div');
+            aiDiv.className = 'message ai-message mb-3';
+            aiDiv.innerHTML = `
+                <div class="message-content">
+                    ${data.response}
+                </div>
+                <small class="text-muted">AI Support Agent</small>
+            `;
+            chatMessages.appendChild(aiDiv);
+
+            // Clear input and scroll to bottom
+            messageInput.value = '';
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Failed to send message. Please try again.');
+        } finally {
+            sendButton.disabled = false;
+            spinner.classList.add('d-none');
+        }
+    });
+});
+
+async function escalateToHuman() {
+    if (confirm('Are you sure you want to escalate this ticket to human support?')) {
+        try {
+            const response = await fetch('/escalate_ticket', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    ticket_id: {{ ticket.id }}
+                })
+            });
+
+            if (response.ok) {
+                location.reload();
+            } else {
+                alert('Failed to escalate ticket. Please try again.');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Failed to escalate ticket. Please try again.');
+        }
+    }
+}
+
+async function markAsResolved() {
+    if (confirm('Are you sure you want to mark this ticket as resolved?')) {
+        try {
+            const response = await fetch('/resolve_ticket', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    ticket_id: {{ ticket.id }}
+                })
+            });
+
+            if (response.ok) {
+                location.reload();
+            } else {
+                alert('Failed to mark ticket as resolved. Please try again.');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Failed to mark ticket as resolved. Please try again.');
+        }
+    }
+}
+</script>
+
+<style>
+.message {
+    margin-bottom: 1rem;
+}
+
+.message-content {
+    background-color: var(--bs-gray-800);
+    padding: 1rem;
+    border-radius: 0.5rem;
+    margin-bottom: 0.25rem;
+    white-space: pre-wrap;
+}
+
+.user-message .message-content {
+    background-color: var(--bs-primary);
+}
+
+.ai-message {
+    max-width: 80%;
+}
+
+.user-message {
+    max-width: 80%;
+    margin-left: auto;
+}
+</style>
+{% endblock %}
